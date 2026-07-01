@@ -18,6 +18,42 @@ services:
       timeout: 5s
       retries: 5
 
+  # PostgreSQL Database for Inventory (separate DB — database-per-service)
+  inventory-db:
+    image: postgres:16
+    container_name: inventory-db
+    environment:
+      POSTGRES_DB: inventory_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - inventory-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # RabbitMQ Message Broker
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"    # AMQP protocol (your app connects here)
+      - "15672:15672"  # Management UI (browser dashboard)
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # Catalog API
   catalog-api:
     build:
@@ -29,9 +65,36 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ConnectionStrings__CatalogDb=Host=catalog-db;Port=5432;Database=catalog_db;Username=postgres;Password=postgres
+      - RabbitMQ__Host=rabbitmq
+      - RabbitMQ__Username=guest
+      - RabbitMQ__Password=guest
     depends_on:
       catalog-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  # Inventory API
+  inventory-api:
+    build:
+      context: .
+      dockerfile: src/Services/Inventory/Inventory.API/Dockerfile
+    container_name: inventory-api
+    ports:
+      - "5003:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__InventoryDb=Host=inventory-db;Port=5432;Database=inventory_db;Username=postgres;Password=postgres
+      - RabbitMQ__Host=rabbitmq
+      - RabbitMQ__Username=guest
+      - RabbitMQ__Password=guest
+    depends_on:
+      inventory-db:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
 
 volumes:
   catalog-db-data:
+  inventory-db-data:
+  rabbitmq-data:

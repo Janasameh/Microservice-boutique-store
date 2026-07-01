@@ -1,6 +1,7 @@
 using Catalog.Domain.Repositories;
 using Catalog.Infrastructure.Persistence;
 using Catalog.Infrastructure.Repositories;
+using MassTransit;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -14,6 +15,25 @@ builder.Services.AddDbContext<CatalogDbContext>(options =>
 
 // Repositories
 builder.Services.AddScoped<IProductRepository, ProductRepository>();
+
+// Application Services (CQRS/MediatR)
+builder.Services.AddMediatR(cfg => 
+    cfg.RegisterServicesFromAssembly(typeof(Catalog.Application.Queries.GetAllProducts.GetProductsHandler).Assembly));
+
+// Messaging — MassTransit + RabbitMQ
+builder.Services.AddMassTransit(x =>
+{
+    x.UsingRabbitMq((context, cfg) =>
+    {
+        cfg.Host(builder.Configuration["RabbitMQ:Host"] ?? "localhost", "/", h =>
+        {
+            h.Username(builder.Configuration["RabbitMQ:Username"] ?? "guest");
+            h.Password(builder.Configuration["RabbitMQ:Password"] ?? "guest");
+        });
+
+        cfg.ConfigureEndpoints(context);
+    });
+});
 
 var app = builder.Build();
 
