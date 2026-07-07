@@ -36,13 +36,49 @@ services:
       timeout: 5s
       retries: 5
 
+  # PostgreSQL Database for Identity
+  identity-db:
+    image: postgres:16
+    container_name: identity-db
+    environment:
+      POSTGRES_DB: identity_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5434:5432"
+    volumes:
+      - identity-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # PostgreSQL Database for Ordering
+  ordering-db:
+    image: postgres:16
+    container_name: ordering-db
+    environment:
+      POSTGRES_DB: ordering_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5435:5432"
+    volumes:
+      - ordering-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   # RabbitMQ Message Broker
   rabbitmq:
     image: rabbitmq:3-management
     container_name: rabbitmq
     ports:
-      - "5672:5672"    # AMQP protocol (your app connects here)
-      - "15672:15672"  # Management UI (browser dashboard)
+      - "5672:5672"    # AMQP protocol
+      - "15672:15672"  # Management UI
     environment:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
@@ -52,6 +88,20 @@ services:
       test: ["CMD", "rabbitmq-diagnostics", "ping"]
       interval: 10s
       timeout: 5s
+      retries: 5
+
+  # Redis Cache (for Basket service)
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
       retries: 5
 
   # Catalog API
@@ -94,7 +144,82 @@ services:
       rabbitmq:
         condition: service_healthy
 
+  # Identity API
+  identity-api:
+    build:
+      context: .
+      dockerfile: src/Services/Identity/Identity.API/Dockerfile
+    container_name: identity-api
+    ports:
+      - "5001:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__IdentityDb=Host=identity-db;Port=5432;Database=identity_db;Username=postgres;Password=postgres
+      - Jwt__Key=SuperSecretKeyThatIsAtLeast32CharactersLong!
+      - Jwt__Issuer=BoutiqueGateway
+      - Jwt__Audience=BoutiqueMicroservices
+    depends_on:
+      identity-db:
+        condition: service_healthy
+
+  # Basket API
+  basket-api:
+    build:
+      context: .
+      dockerfile: src/Services/Basket/Basket.API/Dockerfile
+    container_name: basket-api
+    ports:
+      - "5004:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - Redis__ConnectionString=redis:6379
+      - RabbitMQ__Host=rabbitmq
+      - RabbitMQ__Username=guest
+      - RabbitMQ__Password=guest
+    depends_on:
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  # Ordering API
+  ordering-api:
+    build:
+      context: .
+      dockerfile: src/Services/Ordering/Ordering.API/Dockerfile
+    container_name: ordering-api
+    ports:
+      - "5005:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__OrderingDb=Host=ordering-db;Port=5432;Database=ordering_db;Username=postgres;Password=postgres
+      - RabbitMQ__Host=rabbitmq
+      - RabbitMQ__Username=guest
+      - RabbitMQ__Password=guest
+    depends_on:
+      ordering-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  # Notification Worker (no HTTP port — pure event consumer)
+  notification-worker:
+    build:
+      context: .
+      dockerfile: src/Services/Notification/Notification.Worker/Dockerfile
+    container_name: notification-worker
+    environment:
+      - RabbitMQ__Host=rabbitmq
+      - RabbitMQ__Username=guest
+      - RabbitMQ__Password=guest
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
 volumes:
   catalog-db-data:
   inventory-db-data:
+  identity-db-data:
+  ordering-db-data:
   rabbitmq-data:
+  redis-data:

@@ -1,4 +1,7 @@
 <Solution>
+  <Folder Name="/src/">
+    <Project Path="src/ApiGateway/ApiGateway.csproj" />
+  </Folder>
   <Folder Name="/src/BuildingBlocks/">
     <Project Path="src/BuildingBlocks/Common/Common.csproj" />
   </Folder>
@@ -11,5 +14,26 @@
   </Folder>
   <Folder Name="/src/Services/Inventory/">
     <Project Path="src/Services/Inventory/Inventory.API/Inventory.API.csproj" />
+    <Project Path="src/Services/Inventory/Inventory.Application/Inventory.Application.csproj" />
+    <Project Path="src/Services/Inventory/Inventory.Domain/Inventory.Domain.csproj" />
+  </Folder>
+  <Folder Name="/src/Services/Basket/">
+    <Project Path="src/Services/Basket/Basket.API/Basket.API.csproj" />
+    <Project Path="src/Services/Basket/Basket.Application/Basket.Application.csproj" />
+    <Project Path="src/Services/Basket/Basket.Domain/Basket.Domain.csproj" />
+    <Project Path="src/Services/Basket/Basket.Infrastructure/Basket.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Services/Ordering/">
+    <Project Path="src/Services/Ordering/Ordering.API/Ordering.API.csproj" />
+    <Project Path="src/Services/Ordering/Ordering.Application/Ordering.Application.csproj" />
+    <Project Path="src/Services/Ordering/Ordering.Domain/Ordering.Domain.csproj" />
+    <Project Path="src/Services/Ordering/Ordering.Infrastructure/Ordering.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Services/Identity/">
+    <Project Path="src/Services/Identity/Identity.API/Identity.API.csproj" />
+  </Folder>
+  <Folder Name="/src/Services/Notification/">
+    <Project Path="src/Services/Notification/Notification.Worker/Notification.Worker.csproj" />
   </Folder>
 </Solution>
+
